@@ -10,9 +10,9 @@
   <div class="shell">
     <header class="topbar">
       <div>
-        <div class="eyebrow">FFMPEG MULTI DESTINATION</div>
+        <div class="eyebrow">ONE ENCODE · HOT OUTPUTS</div>
         <h1>Stream247</h1>
-        <p>معالجة واحدة، عدة مخارج RTMP / RTMPS.</p>
+        <p>معالجة واحدة، مخارج مستقلة، وريكونكت تلقائي لكل Output.</p>
       </div>
       <button id="newBtn" class="btn primary">+ بث جديد</button>
     </header>
@@ -23,7 +23,7 @@
       <section id="empty" class="empty hidden">
         <div class="empty-icon">▶</div>
         <h2>ما عندك بثوث بعد</h2>
-        <p>أنشئ بث، حط مصدر M3U8 أو RTMP، ثم أضف أكثر من مخرج تلي.</p>
+        <p>أنشئ بث، افحص المصدر، ثم أضف مخارج RTMP / RTMPS.</p>
         <button class="btn primary" onclick="openEditor()">إنشاء أول بث</button>
       </section>
     </main>
@@ -39,17 +39,41 @@
         <button class="icon-btn" onclick="closeEditor()">×</button>
       </div>
 
+      <div id="hotEditBanner" class="hot-banner hidden">
+        البث شغال الآن: تقدر تضيف/تحذف/تغيّر المفاتيح والمخارج وتضغط حفظ، وتُطبق فورًا بدون إعادة تشغيل الـEncoder. إعدادات المعالجة نفسها تحتاج إيقاف البث.
+      </div>
+
       <form id="streamForm">
         <input type="hidden" id="streamId">
 
         <div class="section-title">الأساسيات</div>
-        <div class="grid two">
+        <div class="grid two source-grid">
           <label>اسم البث
             <input id="name" placeholder="مثلاً: Match 1" required>
           </label>
           <label>المصدر
-            <input id="source" placeholder="https://.../index.m3u8" required>
+            <div class="input-action">
+              <input id="source" placeholder="https://.../index.m3u8 أو rtmp://..." required>
+              <button id="probeBtn" class="btn small ghost" type="button">🔎 فحص</button>
+            </div>
           </label>
+        </div>
+
+        <div id="probeResult" class="probe-panel hidden" aria-live="polite">
+          <div class="probe-head">
+            <div>
+              <div class="mini-head">نتيجة فحص المصدر</div>
+              <div id="probeFormat" class="muted-line"></div>
+            </div>
+            <button id="applyProbeBtn" class="btn small primary" type="button">تطبيق على المعالجة</button>
+          </div>
+          <div class="probe-metrics">
+            <div><span>Resolution</span><strong id="probeResolution">—</strong></div>
+            <div><span>FPS</span><strong id="probeFps">—</strong></div>
+            <div><span>Video Codec</span><strong id="probeCodec">—</strong></div>
+            <div><span>Bitrate</span><strong id="probeBitrate">—</strong></div>
+            <div><span>Audio</span><strong id="probeAudio">—</strong></div>
+          </div>
         </div>
 
         <div class="section-title">المعالجة</div>
@@ -67,6 +91,7 @@
           </label>
           <label>FPS
             <select id="fps">
+              <option value="24">24</option>
               <option value="25">25</option>
               <option value="30">30</option>
               <option value="50" selected>50</option>
@@ -94,6 +119,10 @@
                 <label class="btn small ghost file-btn">رفع<input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp"></label>
               </div>
             </label>
+            <div id="logoPreviewWrap" class="logo-preview-wrap hidden">
+              <img id="logoPreview" alt="معاينة الشعار">
+              <button id="clearLogoBtn" class="btn small ghost danger-text" type="button">إزالة الصورة</button>
+            </div>
             <div class="grid two compact">
               <label>العرض px<input id="logoWidth" type="number" value="335" min="40" max="900"></label>
               <label>المكان
@@ -134,11 +163,12 @@
           <span>المخارج</span>
           <button type="button" class="btn small ghost" onclick="addDestination()">+ إضافة مخرج</button>
         </div>
+        <div class="outputs-help">كل مخرج مستقل. إذا فصل مخرج واحد، يعيد الاتصال وحده بدون إيقاف المصدر أو بقية المخارج.</div>
         <div id="destinations" class="destinations"></div>
 
         <div class="modal-actions">
           <button type="button" class="btn ghost" onclick="closeEditor()">إلغاء</button>
-          <button type="submit" class="btn primary">حفظ</button>
+          <button type="submit" class="btn primary">حفظ / تطبيق</button>
         </div>
       </form>
     </div>

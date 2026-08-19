@@ -1,135 +1,46 @@
-# Stream247 Multi-Destination Panel
+# Stream247 — Hot Outputs Edition
 
-لوحة ويب خفيفة لبث مصدر واحد إلى عدة RTMP/RTMPS باستخدام **FFmpeg encode واحد فقط** لكل Stream.
+لوحة بث FFmpeg بمعالجة واحدة لكل مصدر ومخارج RTMP/RTMPS مستقلة.
 
-## الفكرة
+## أهم التعديلات
 
-```text
-M3U8 / HTTP / RTMP source
-        |
-        v
-  FFmpeg filter/encode (ONCE)
-  quality + bitrate + FPS
-  logo + optional text
-        |
-        v
-     tee muxer
-   /     |      \
-RTMPS  RTMPS   RTMP ...
-```
+- Encoder واحد فقط لكل بث.
+- المخرجات تعمل بعمليات FFmpeg خفيفة `-c copy` بدون إعادة ترميز.
+- إضافة/حذف/تغيير Stream Key أثناء البث بدون إعادة تشغيل الـEncoder.
+- كل Output يعيد الاتصال تلقائياً لوحده عند الانقطاع.
+- Queue مستقلة لكل Output حتى المخرج البطيء لا يوقف البقية.
+- فحص المصدر من اللوحة بواسطة `ffprobe`: الدقة، FPS، codec، bitrate والصوت.
+- زر لتطبيق إعدادات المصدر المقترحة على المعالجة.
+- معاينة للشعار/الصورة عند الرفع.
+- حالة كل Output في اللوحة: LIVE / CONNECTING / RECONNECT.
+- إخفاء Stream Keys من السجلات.
 
-كل مخارج الـStream تستخدم نفس الـencoded packets عبر FFmpeg `tee` muxer. لا يتم تشغيل encode منفصل لكل وجهة.
-
-## الميزات
-
-- مصدر URL واحد لكل Stream (`m3u8`, HTTP/HLS, RTMP/RTMPS وغير ذلك مما يدعمه FFmpeg).
-- أكثر من Stream مستقل في نفس اللوحة.
-- عدة RTMP/RTMPS destinations لكل Stream.
-- `onfail=ignore` لكل destination: فشل مخرج لا يوقف البقية.
-- `tee + fifo recovery`: يحاول إعادة ربط المخرج الفاشل بدون إعادة تشغيل encode.
-- جودة: Original / 1080p / 720p / 480p.
-- Bitrate وFPS وx264 preset.
-- Logo من URL أو رفع PNG/JPG/WEBP.
-- Text overlay اختياري.
-- Start / Stop / Logs.
-- Stream keys يتم حجبها من اللوج الذي تعرضه اللوحة.
-- الإعدادات محفوظة في `./data/streams.json`.
-
-## التثبيت على VPS Ubuntu
-
-### 1) فك الضغط
-
-```bash
-unzip stream247-panel.zip
-cd stream247-panel
-```
-
-### 2) التشغيل
-
-المنفذ الافتراضي للوحة هو `28081`:
+## التشغيل
 
 ```bash
 chmod +x install.sh
-sudo ./install.sh
+./install.sh
 ```
 
 ثم افتح:
 
 ```text
-http://VPS-IP:28081
+http://YOUR_VPS_IP:28081
 ```
 
-لو `28081` مستخدم:
+لبورت مختلف:
 
 ```bash
-sudo PORT=38081 ./install.sh
+PORT=38081 ./install.sh
 ```
 
-### تشغيل يدوي
+## تحديث نسخة موجودة على VPS
+
+احتفظ بمجلد `data/` لأنه يحتوي إعداداتك والصور، ثم استبدل ملفات المشروع وأعد البناء:
 
 ```bash
-sudo docker compose up -d --build
+docker compose down
+docker compose up -d --build
 ```
 
-### اللوج
-
-```bash
-sudo docker compose logs -f
-```
-
-### إيقاف اللوحة
-
-```bash
-sudo docker compose down
-```
-
-## حماية اللوحة بكلمة مرور
-
-في `docker-compose.yml` فك التعليق عن:
-
-```yaml
-- ADMIN_USER=admin
-- ADMIN_PASSWORD=change-me-now
-```
-
-ثم:
-
-```bash
-sudo docker compose up -d --build
-```
-
-يفضل وضع اللوحة خلف HTTPS إذا كانت متاحة من الإنترنت.
-
-## Telegram
-
-أضف Destination هكذا:
-
-- RTMP/RTMPS Server: مثل القيمة التي يعطيك Telegram وتنتهي عادة بـ `/s/`
-- Stream Key: المفتاح وحده
-
-اللوحة تجمعهما داخليًا وتبني مخرج tee من الشكل:
-
-```text
-[f=flv:onfail=ignore]rtmps://SERVER/s/STREAM_KEY
-```
-
-## إعداد شبيه بالأمر الذي طلبته
-
-- Quality: `1080p`
-- Bitrate: `5000`
-- FPS: `50`
-- Preset: `superfast`
-- Logo width: `335`
-- Logo position: `top-right`
-- Audio: AAC 128k / 48kHz / stereo
-- GOP: FPS × 2 (`100` عند 50fps)
-- Maxrate: bitrate × 1.10
-- Bufsize: bitrate × 2
-
-## ملاحظة حول الموارد
-
-Encode واحد يعني أن إضافة 4 مخارج تلي لن تعمل 4 عمليات x264. لكن كل مخرج سيستهلك bandwidth مستقل. مثال: 5 Mbps إلى 4 مخارج ≈ 20 Mbps upload، إضافة للصوت والـoverhead.
-
-## ملاحظة تشغيلية
-
-اللوحة تستخدم `tee` مع `use_fifo=1` و`attempt_recovery=1`، لذلك المخرجات مفصولة عن encoder، وفشل أو بطء وجهة لا يفترض أن يوقف البقية، مع محاولات recovery تلقائية.
+صيغة `streams.json` القديمة بقيت متوافقة؛ لا تحتاج إعادة إدخال البثوث.

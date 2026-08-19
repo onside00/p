@@ -25,10 +25,19 @@ def require_auth(fn):
         if not ADMIN_USER or not ADMIN_PASSWORD:
             return fn(*args, **kwargs)
         auth = request.authorization
-        ok = auth and secrets.compare_digest(auth.username or "", ADMIN_USER) and secrets.compare_digest(auth.password or "", ADMIN_PASSWORD)
+        ok = (
+            auth
+            and secrets.compare_digest(auth.username or "", ADMIN_USER)
+            and secrets.compare_digest(auth.password or "", ADMIN_PASSWORD)
+        )
         if not ok:
-            return ("Authentication required", 401, {"WWW-Authenticate": 'Basic realm="Stream247"'})
+            return (
+                "Authentication required",
+                401,
+                {"WWW-Authenticate": 'Basic realm="Stream247"'},
+            )
         return fn(*args, **kwargs)
+
     return wrapped
 
 
@@ -41,9 +50,12 @@ def index():
 @app.route("/api/streams", methods=["GET", "POST"])
 @require_auth
 def streams():
-    if request.method == "GET":
-        return jsonify(manager.list_streams())
-    return jsonify(manager.create_stream(request.get_json(silent=True) or {})), 201
+    try:
+        if request.method == "GET":
+            return jsonify(manager.list_streams())
+        return jsonify(manager.create_stream(request.get_json(silent=True) or {})), 201
+    except (ValueError, RuntimeError) as e:
+        return jsonify({"error": str(e)}), 400
 
 
 @app.route("/api/streams/<stream_id>", methods=["GET", "PUT", "DELETE"])
@@ -88,6 +100,28 @@ def stream_logs(stream_id):
     return jsonify({"lines": manager.get_logs(stream_id)})
 
 
+@app.route("/api/probe-source", methods=["POST"])
+@require_auth
+def probe_source():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(manager.probe_source(payload.get("source", "")))
+    except (ValueError, RuntimeError) as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/streams/<stream_id>/probe", methods=["POST"])
+@require_auth
+def probe_stream_source(stream_id):
+    item = manager.get_stream(stream_id)
+    if not item:
+        return jsonify({"error": "Stream not found"}), 404
+    try:
+        return jsonify(manager.probe_source(item.get("source", "")))
+    except (ValueError, RuntimeError) as e:
+        return jsonify({"error": str(e)}), 400
+
+
 @app.route("/api/upload-logo", methods=["POST"])
 @require_auth
 def upload_logo():
@@ -100,7 +134,6 @@ def upload_logo():
     filename = f"logo_{secrets.token_hex(6)}{ext}"
     path = UPLOAD_DIR / filename
     file.save(path)
-    # This path is valid inside the app/FFmpeg Docker container.
     return jsonify({"path": str(path), "url": f"/uploads/{filename}"})
 
 

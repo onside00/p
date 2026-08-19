@@ -13,7 +13,6 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-# Allow choosing another host port without editing the file manually.
 sed -i -E "s/[0-9]+:8080/${PORT}:8080/" docker-compose.yml
 mkdir -p data/uploads
 
