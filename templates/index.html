@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stream247 Panel</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">FFMPEG MULTI DESTINATION</div>
+        <h1>Stream247</h1>
+        <p>معالجة واحدة، عدة مخارج RTMP / RTMPS.</p>
+      </div>
+      <button id="newBtn" class="btn primary">+ بث جديد</button>
+    </header>
+
+    <main>
+      <div id="notice" class="notice hidden"></div>
+      <section id="cards" class="cards"></section>
+      <section id="empty" class="empty hidden">
+        <div class="empty-icon">▶</div>
+        <h2>ما عندك بثوث بعد</h2>
+        <p>أنشئ بث، حط مصدر M3U8 أو RTMP، ثم أضف أكثر من مخرج تلي.</p>
+        <button class="btn primary" onclick="openEditor()">إنشاء أول بث</button>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">STREAM SETTINGS</div>
+          <h2 id="modalTitle">بث جديد</h2>
+        </div>
+        <button class="icon-btn" onclick="closeEditor()">×</button>
+      </div>
+
+      <form id="streamForm">
+        <input type="hidden" id="streamId">
+
+        <div class="section-title">الأساسيات</div>
+        <div class="grid two">
+          <label>اسم البث
+            <input id="name" placeholder="مثلاً: Match 1" required>
+          </label>
+          <label>المصدر
+            <input id="source" placeholder="https://.../index.m3u8" required>
+          </label>
+        </div>
+
+        <div class="section-title">المعالجة</div>
+        <div class="grid four">
+          <label>الجودة
+            <select id="quality">
+              <option value="1080p">1080p</option>
+              <option value="720p">720p</option>
+              <option value="480p">480p</option>
+              <option value="original">Original</option>
+            </select>
+          </label>
+          <label>Video bitrate (kbps)
+            <input id="bitrate" type="number" min="300" max="30000" value="5000">
+          </label>
+          <label>FPS
+            <select id="fps">
+              <option value="25">25</option>
+              <option value="30">30</option>
+              <option value="50" selected>50</option>
+              <option value="60">60</option>
+            </select>
+          </label>
+          <label>Preset
+            <select id="preset">
+              <option value="ultrafast">ultrafast</option>
+              <option value="superfast" selected>superfast</option>
+              <option value="veryfast">veryfast</option>
+              <option value="faster">faster</option>
+              <option value="fast">fast</option>
+              <option value="medium">medium</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid two">
+          <div class="panel soft">
+            <div class="mini-head">الشعار / الصورة</div>
+            <label>رابط الصورة أو مسار مرفوع
+              <div class="input-action">
+                <input id="logo" placeholder="https://.../logo.png أو /data/uploads/...">
+                <label class="btn small ghost file-btn">رفع<input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp"></label>
+              </div>
+            </label>
+            <div class="grid two compact">
+              <label>العرض px<input id="logoWidth" type="number" value="335" min="40" max="900"></label>
+              <label>المكان
+                <select id="logoPosition">
+                  <option value="top-right">أعلى يمين</option>
+                  <option value="top-left">أعلى يسار</option>
+                  <option value="bottom-right">أسفل يمين</option>
+                  <option value="bottom-left">أسفل يسار</option>
+                  <option value="center">المنتصف</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="panel soft">
+            <div class="mini-head">نص اختياري</div>
+            <label>النص
+              <input id="text" placeholder="مثلاً: ONSIDE PLUS">
+            </label>
+            <div class="grid two compact">
+              <label>الحجم<input id="textSize" type="number" value="38" min="12" max="120"></label>
+              <label>المكان
+                <select id="textPosition">
+                  <option value="bottom-center">أسفل وسط</option>
+                  <option value="top-center">أعلى وسط</option>
+                  <option value="top-right">أعلى يمين</option>
+                  <option value="top-left">أعلى يسار</option>
+                  <option value="bottom-right">أسفل يمين</option>
+                  <option value="bottom-left">أسفل يسار</option>
+                  <option value="center">المنتصف</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title row-between">
+          <span>المخارج</span>
+          <button type="button" class="btn small ghost" onclick="addDestination()">+ إضافة مخرج</button>
+        </div>
+        <div id="destinations" class="destinations"></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" onclick="closeEditor()">إلغاء</button>
+          <button type="submit" class="btn primary">حفظ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="logModal" class="modal hidden">
+    <div class="modal-card log-card">
+      <div class="modal-head">
+        <div><div class="eyebrow">FFMPEG LOG</div><h2 id="logTitle">Logs</h2></div>
+        <button class="icon-btn" onclick="closeLogs()">×</button>
+      </div>
+      <pre id="logs"></pre>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
