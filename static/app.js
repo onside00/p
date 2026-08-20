@@ -2,6 +2,9 @@ let streams = [];
 let logTimer = null;
 let lastProbe = null;
 let editorWasRunning = false;
+let hotApplyTimer = null;
+let hotApplyBusy = false;
+let hotApplyPending = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -23,27 +26,24 @@ async function api(url, options={}) {
   return data;
 }
 
-async function loadStreams() {
+function makeId() {
   try {
-    streams = await api('/api/streams');
-    renderCards();
-  } catch (e) {
-    notify(e.message, true);
-  }
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+      return globalThis.crypto.randomUUID().slice(0, 8);
+    }
+    if (globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
+      const b = new Uint8Array(8);
+      globalThis.crypto.getRandomValues(b);
+      return [...b].map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 8);
+    }
+  } catch (_) {}
+  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 10)).slice(-8);
 }
 
 function esc(s='') {
   return String(s).replace(/[&<>'"]/g, c => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;'
   }[c]));
-}
-
-function fmtUptime(total=0) {
-  total = Math.max(0, Number(total) || 0);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = Math.floor(total % 60);
-  return [h,m,s].map(x => String(x).padStart(2,'0')).join(':');
 }
 
 function outputStatus(d) {
@@ -53,6 +53,15 @@ function outputStatus(d) {
   if (status === 'reconnecting') return {label:'RECONNECT', cls:'reconnecting'};
   if (status === 'connecting') return {label:'CONNECTING', cls:'connecting'};
   return {label:'STOPPED', cls:'stopped'};
+}
+
+async function loadStreams() {
+  try {
+    streams = await api('/api/streams');
+    renderCards();
+  } catch (e) {
+    notify(e.message, true);
+  }
 }
 
 function renderCards() {
@@ -115,11 +124,15 @@ function resetForm() {
   $('destinations').innerHTML = '';
   $('probeResult').classList.add('hidden');
   $('hotEditBanner').classList.add('hidden');
+  $('hotState').textContent = 'جاهز';
   lastProbe = null;
   editorWasRunning = false;
+  hotApplyBusy = false;
+  hotApplyPending = false;
+  clearTimeout(hotApplyTimer);
   setProcessingLocked(false);
   showLogoPreview('');
-  addDestination();
+  addDestination({}, false);
 }
 
 function setProcessingLocked(locked) {
@@ -155,8 +168,8 @@ function openEditor(stream=null) {
     $('textSize').value = stream.text_size || 38;
     $('textPosition').value = stream.text_position || 'bottom-center';
     $('destinations').innerHTML = '';
-    (stream.destinations || []).forEach(addDestination);
-    if (!(stream.destinations || []).length) addDestination();
+    (stream.destinations || []).forEach(d => addDestination(d, false));
+    if (!(stream.destinations || []).length) addDestination({}, false);
     showLogoPreview(stream.logo || '');
 
     if (stream.running) {
@@ -170,6 +183,7 @@ function openEditor(stream=null) {
 }
 
 function closeEditor() {
+  clearTimeout(hotApplyTimer);
   $('modal').classList.add('hidden');
 }
 
@@ -178,12 +192,15 @@ function editStream(id) {
   if (s) openEditor(s);
 }
 
-function addDestination(d={}) {
+function addDestination(d={}, userInitiated=true) {
   const wrap = document.createElement('div');
   wrap.className = 'destination';
-  wrap.dataset.id = d.id || crypto.randomUUID().slice(0,8);
+  wrap.dataset.id = d.id || makeId();
   const st = outputStatus(d);
-  const runtime = d.id ? `<div class="d-runtime ${st.cls}"><i></i>${st.label}${d.retries ? ` · Retry ${d.retries}` : ''}</div>` : '';
+  const runtime = d.id
+    ? `<div class="d-runtime ${st.cls}"><i></i>${st.label}${d.retries ? ` · Retry ${d.retries}` : ''}</div>`
+    : '<div class="d-runtime stopped"><i></i>NEW</div>';
+
   wrap.innerHTML = `
     <div class="dest-state">
       <label class="check"><input type="checkbox" class="d-enabled" ${d.enabled === false ? '' : 'checked'}><span>فعال</span></label>
@@ -192,9 +209,43 @@ function addDestination(d={}) {
     <label>الاسم<input class="d-name" value="${esc(d.name || 'Telegram')}" placeholder="Telegram 1"></label>
     <label class="wide">RTMP / RTMPS Server<input class="d-base" value="${esc(d.rtmp_base || 'rtmps://dc4-1.rtmp.t.me/s/')}" placeholder="rtmps://.../s/"></label>
     <label class="wide">Stream Key<input class="d-key" type="password" value="${esc(d.stream_key || '')}" placeholder="xxxxxxxx"></label>
-    <button type="button" class="icon-btn remove" title="حذف هذا المخرج">×</button>`;
-  wrap.querySelector('.remove').addEventListener('click', () => wrap.remove());
+    <div class="dest-buttons">
+      ${editorWasRunning && d.id ? `<button type="button" class="icon-btn reconnect" title="Reconnect هذا المخرج">↻</button>` : ''}
+      <button type="button" class="icon-btn remove" title="حذف هذا المخرج">×</button>
+    </div>`;
+
+  const removeBtn = wrap.querySelector('.remove');
+  removeBtn.addEventListener('click', () => {
+    wrap.remove();
+    if (editorWasRunning) scheduleHotApply(100);
+  });
+
+  const reconnectBtn = wrap.querySelector('.reconnect');
+  if (reconnectBtn) {
+    reconnectBtn.addEventListener('click', async () => {
+      const sid = $('streamId').value;
+      try {
+        reconnectBtn.disabled = true;
+        await api(`/api/streams/${sid}/outputs/${wrap.dataset.id}/reconnect`, {method:'POST'});
+        notify('تم إعادة تشغيل هذا الـOutput فقط.');
+        await loadStreams();
+      } catch (e) {
+        notify(e.message, true);
+      } finally {
+        reconnectBtn.disabled = false;
+      }
+    });
+  }
+
+  wrap.addEventListener('input', () => {
+    if (editorWasRunning) scheduleHotApply(800);
+  });
+  wrap.addEventListener('change', () => {
+    if (editorWasRunning) scheduleHotApply(150);
+  });
+
   $('destinations').appendChild(wrap);
+  if (userInitiated && editorWasRunning) scheduleHotApply(100);
 }
 
 function collectPayload() {
@@ -223,20 +274,49 @@ function collectPayload() {
   };
 }
 
+function scheduleHotApply(delay=600) {
+  if (!editorWasRunning || !$('streamId').value) return;
+  clearTimeout(hotApplyTimer);
+  $('hotState').textContent = 'بانتظار التطبيق…';
+  hotApplyTimer = setTimeout(() => hotApplyOutputs(), delay);
+}
+
+async function hotApplyOutputs() {
+  if (!editorWasRunning || !$('streamId').value) return;
+  if (hotApplyBusy) {
+    hotApplyPending = true;
+    return;
+  }
+
+  hotApplyBusy = true;
+  $('hotState').textContent = 'جاري التطبيق…';
+  try {
+    const id = $('streamId').value;
+    await api(`/api/streams/${id}`, {method:'PUT', body:JSON.stringify(collectPayload())});
+    $('hotState').textContent = '✓ مطبق مباشرة';
+    await loadStreams();
+  } catch (e) {
+    $('hotState').textContent = 'فشل التطبيق';
+    notify(e.message, true);
+  } finally {
+    hotApplyBusy = false;
+    if (hotApplyPending) {
+      hotApplyPending = false;
+      scheduleHotApply(150);
+    }
+  }
+}
+
 $('streamForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
+    clearTimeout(hotApplyTimer);
     const id = $('streamId').value;
     const payload = collectPayload();
-    if (id) {
-      await api(`/api/streams/${id}`, {method:'PUT', body:JSON.stringify(payload)});
-    } else {
-      await api('/api/streams', {method:'POST', body:JSON.stringify(payload)});
-    }
+    if (id) await api(`/api/streams/${id}`, {method:'PUT', body:JSON.stringify(payload)});
+    else await api('/api/streams', {method:'POST', body:JSON.stringify(payload)});
     closeEditor();
-    notify(editorWasRunning
-      ? 'تم تطبيق تغييرات المخارج مباشرة بدون إعادة تشغيل الـ Encoder.'
-      : 'تم حفظ الإعدادات.');
+    notify(editorWasRunning ? 'تم تطبيق المخارج بدون إعادة تشغيل الـEncoder.' : 'تم حفظ الإعدادات.');
     await loadStreams();
   } catch (e) {
     notify(e.message, true);
@@ -280,7 +360,7 @@ $('clearLogoBtn').addEventListener('click', () => {
 $('logoFile').addEventListener('change', async (e) => {
   const f = e.target.files[0];
   if (!f) return;
-  // Immediate browser-side preview while upload happens.
+
   const localUrl = URL.createObjectURL(f);
   showLogoPreview('', localUrl);
 
@@ -335,10 +415,7 @@ async function probeCurrentSource() {
   btn.disabled = true;
   btn.textContent = 'جاري الفحص…';
   try {
-    const data = await api('/api/probe-source', {
-      method:'POST',
-      body:JSON.stringify({source}),
-    });
+    const data = await api('/api/probe-source', {method:'POST', body:JSON.stringify({source})});
     setProbeResult(data);
     notify('تم فحص المصدر.');
   } catch (e) {
@@ -353,7 +430,7 @@ $('probeBtn').addEventListener('click', probeCurrentSource);
 
 $('applyProbeBtn').addEventListener('click', () => {
   if (!lastProbe) return;
-  if (editorWasRunning) return notify('إعدادات المعالجة مقفلة أثناء البث. أوقف البث لتطبيقها.', true);
+  if (editorWasRunning) return notify('أوقف البث أولاً لتغيير إعدادات المعالجة.', true);
   const r = lastProbe.recommended || {};
   if (r.quality) $('quality').value = r.quality;
   if (r.fps) {

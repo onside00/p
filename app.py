@@ -13,6 +13,7 @@ UPLOAD_DIR = Path(DATA_DIR) / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 manager = StreamManager(DATA_DIR)
 
 ADMIN_USER = os.environ.get("ADMIN_USER", "")
@@ -31,13 +32,8 @@ def require_auth(fn):
             and secrets.compare_digest(auth.password or "", ADMIN_PASSWORD)
         )
         if not ok:
-            return (
-                "Authentication required",
-                401,
-                {"WWW-Authenticate": 'Basic realm="Stream247"'},
-            )
+            return "Authentication required", 401, {"WWW-Authenticate": 'Basic realm="Stream247"'}
         return fn(*args, **kwargs)
-
     return wrapped
 
 
@@ -100,24 +96,23 @@ def stream_logs(stream_id):
     return jsonify({"lines": manager.get_logs(stream_id)})
 
 
+@app.route("/api/streams/<stream_id>/outputs/<destination_id>/reconnect", methods=["POST"])
+@require_auth
+def reconnect_output(stream_id, destination_id):
+    try:
+        return jsonify(manager.restart_output(stream_id, destination_id))
+    except KeyError as e:
+        return jsonify({"error": str(e)}), 404
+    except (ValueError, RuntimeError) as e:
+        return jsonify({"error": str(e)}), 400
+
+
 @app.route("/api/probe-source", methods=["POST"])
 @require_auth
 def probe_source():
     payload = request.get_json(silent=True) or {}
     try:
         return jsonify(manager.probe_source(payload.get("source", "")))
-    except (ValueError, RuntimeError) as e:
-        return jsonify({"error": str(e)}), 400
-
-
-@app.route("/api/streams/<stream_id>/probe", methods=["POST"])
-@require_auth
-def probe_stream_source(stream_id):
-    item = manager.get_stream(stream_id)
-    if not item:
-        return jsonify({"error": "Stream not found"}), 404
-    try:
-        return jsonify(manager.probe_source(item.get("source", "")))
     except (ValueError, RuntimeError) as e:
         return jsonify({"error": str(e)}), 400
 
@@ -147,8 +142,6 @@ def uploads(filename):
 def too_large(_):
     return jsonify({"error": "File too large"}), 413
 
-
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=False)

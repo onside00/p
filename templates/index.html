@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Stream247 Panel</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=2.1">
 </head>
 <body>
   <div class="shell">
@@ -12,7 +12,7 @@
       <div>
         <div class="eyebrow">ONE ENCODE · HOT OUTPUTS</div>
         <h1>Stream247</h1>
-        <p>معالجة واحدة، مخارج مستقلة، وريكونكت تلقائي لكل Output.</p>
+        <p>معالجة واحدة، مخارج مستقلة، وReconnect تلقائي لكل Output.</p>
       </div>
       <button id="newBtn" class="btn primary">+ بث جديد</button>
     </header>
@@ -40,7 +40,8 @@
       </div>
 
       <div id="hotEditBanner" class="hot-banner hidden">
-        البث شغال الآن: تقدر تضيف/تحذف/تغيّر المفاتيح والمخارج وتضغط حفظ، وتُطبق فورًا بدون إعادة تشغيل الـEncoder. إعدادات المعالجة نفسها تحتاج إيقاف البث.
+        البث شغال: تغييرات المخارج والمفاتيح تُطبق تلقائياً بدون إعادة تشغيل الـEncoder. إعدادات المعالجة مقفلة إلى أن توقف البث.
+        <span id="hotState" class="hot-state">جاهز</span>
       </div>
 
       <form id="streamForm">
@@ -65,7 +66,7 @@
               <div class="mini-head">نتيجة فحص المصدر</div>
               <div id="probeFormat" class="muted-line"></div>
             </div>
-            <button id="applyProbeBtn" class="btn small primary" type="button">تطبيق على المعالجة</button>
+            <button id="applyProbeBtn" class="btn small primary" type="button">تطبيق نفس الإعدادات</button>
           </div>
           <div class="probe-metrics">
             <div><span>Resolution</span><strong id="probeResolution">—</strong></div>
@@ -139,9 +140,7 @@
 
           <div class="panel soft">
             <div class="mini-head">نص اختياري</div>
-            <label>النص
-              <input id="text" placeholder="مثلاً: ONSIDE PLUS">
-            </label>
+            <label>النص<input id="text" placeholder="مثلاً: ONSIDE PLUS"></label>
             <div class="grid two compact">
               <label>الحجم<input id="textSize" type="number" value="38" min="12" max="120"></label>
               <label>المكان
@@ -163,11 +162,11 @@
           <span>المخارج</span>
           <button type="button" class="btn small ghost" onclick="addDestination()">+ إضافة مخرج</button>
         </div>
-        <div class="outputs-help">كل مخرج مستقل. إذا فصل مخرج واحد، يعيد الاتصال وحده بدون إيقاف المصدر أو بقية المخارج.</div>
+        <div class="outputs-help">كل مخرج مستقل. إذا فصل مخرج، يعيد الاتصال وحده كل ثانيتين بدون إيقاف المصدر أو بقية المخارج.</div>
         <div id="destinations" class="destinations"></div>
 
         <div class="modal-actions">
-          <button type="button" class="btn ghost" onclick="closeEditor()">إلغاء</button>
+          <button type="button" class="btn ghost" onclick="closeEditor()">إغلاق</button>
           <button type="submit" class="btn primary">حفظ / تطبيق</button>
         </div>
       </form>
@@ -184,6 +183,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=2.1"></script>
 </body>
 </html>

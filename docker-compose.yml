@@ -8,7 +8,7 @@ services:
     environment:
       - TZ=Asia/Baghdad
       - DATA_DIR=/data
-      # Optional: uncomment to protect the panel with HTTP Basic Auth.
+      # اختياري: فعل حماية اللوحة بكلمة مرور
       # - ADMIN_USER=admin
       # - ADMIN_PASSWORD=change-me-now
     volumes:

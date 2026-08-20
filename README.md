@@ -1,46 +1,36 @@
-# Stream247 — Hot Outputs Edition
+# Stream247 Hot Outputs v2
 
-لوحة بث FFmpeg بمعالجة واحدة لكل مصدر ومخارج RTMP/RTMPS مستقلة.
+لوحة FFmpeg لمعالجة مصدر واحد مرة واحدة ثم توزيع نفس الـencoded stream إلى عدة RTMP/RTMPS.
 
-## أهم التعديلات
+## الجديد
+- تعديل/إضافة/حذف Stream Keys والمخارج أثناء البث بدون Restart للـEncoder.
+- Hot Apply تلقائي أثناء تحرير المخارج والبث شغال.
+- كل Output عملية FFmpeg خفيفة `-c copy` مستقلة.
+- Reconnect تلقائي لكل Output كل ثانيتين عند الفصل.
+- زر ↻ لإعادة تشغيل Output واحد يدويًا بدون لمس البقية.
+- فحص المصدر بـ `ffprobe`: Resolution / FPS / Codec / Bitrate / Audio.
+- زر تطبيق إعدادات المصدر على Quality/FPS/Bitrate.
+- Preview للصورة عند الرفع أو وضع رابط مباشر.
+- مفاتيح البث محجوبة من الـLogs.
+- متوافق مع `data/streams.json` القديم.
 
-- Encoder واحد فقط لكل بث.
-- المخرجات تعمل بعمليات FFmpeg خفيفة `-c copy` بدون إعادة ترميز.
-- إضافة/حذف/تغيير Stream Key أثناء البث بدون إعادة تشغيل الـEncoder.
-- كل Output يعيد الاتصال تلقائياً لوحده عند الانقطاع.
-- Queue مستقلة لكل Output حتى المخرج البطيء لا يوقف البقية.
-- فحص المصدر من اللوحة بواسطة `ffprobe`: الدقة، FPS، codec، bitrate والصوت.
-- زر لتطبيق إعدادات المصدر المقترحة على المعالجة.
-- معاينة للشعار/الصورة عند الرفع.
-- حالة كل Output في اللوحة: LIVE / CONNECTING / RECONNECT.
-- إخفاء Stream Keys من السجلات.
-
-## التشغيل
-
+## تثبيت جديد
 ```bash
 chmod +x install.sh
-./install.sh
+sudo ./install.sh
 ```
-
-ثم افتح:
-
-```text
-http://YOUR_VPS_IP:28081
-```
+الافتراضي: `http://VPS-IP:28081`
 
 لبورت مختلف:
-
 ```bash
-PORT=38081 ./install.sh
+sudo PORT=38081 ./install.sh
 ```
 
-## تحديث نسخة موجودة على VPS
-
-احتفظ بمجلد `data/` لأنه يحتوي إعداداتك والصور، ثم استبدل ملفات المشروع وأعد البناء:
-
+## تحديث نسخة موجودة بدون خسارة إعداداتك
+أوقف القديمة، احتفظ بمجلد `data/`، استبدل ملفات المشروع بهذه النسخة ثم أعد البناء:
 ```bash
-docker compose down
-docker compose up -d --build
+sudo docker compose down
+sudo docker compose up -d --build
 ```
 
-صيغة `streams.json` القديمة بقيت متوافقة؛ لا تحتاج إعادة إدخال البثوث.
+إذا نقلت المشروع إلى مجلد جديد، انسخ `data/` القديم إلى المجلد الجديد قبل التشغيل.
