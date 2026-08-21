@@ -37,6 +37,13 @@ def require_auth(fn):
     return wrapped
 
 
+@app.after_request
+def no_cache_api(response):
+    if request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.route("/")
 @require_auth
 def index():
@@ -96,15 +103,10 @@ def stream_logs(stream_id):
     return jsonify({"lines": manager.get_logs(stream_id)})
 
 
-@app.route("/api/streams/<stream_id>/outputs/<destination_id>/reconnect", methods=["POST"])
+@app.route("/api/system/stats")
 @require_auth
-def reconnect_output(stream_id, destination_id):
-    try:
-        return jsonify(manager.restart_output(stream_id, destination_id))
-    except KeyError as e:
-        return jsonify({"error": str(e)}), 404
-    except (ValueError, RuntimeError) as e:
-        return jsonify({"error": str(e)}), 400
+def system_stats():
+    return jsonify(manager.get_system_stats())
 
 
 @app.route("/api/probe-source", methods=["POST"])

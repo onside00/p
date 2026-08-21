@@ -4,18 +4,31 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Stream247 Panel</title>
-  <link rel="stylesheet" href="/static/style.css?v=2.1">
+  <link rel="stylesheet" href="/static/style.css?v=3.0">
 </head>
 <body>
   <div class="shell">
     <header class="topbar">
       <div>
-        <div class="eyebrow">ONE ENCODE · HOT OUTPUTS</div>
+        <div class="eyebrow">SINGLE FFMPEG · ONE ENCODE · TEE + FIFO</div>
         <h1>Stream247</h1>
-        <p>معالجة واحدة، مخارج مستقلة، وReconnect تلقائي لكل Output.</p>
+        <p>معالجة H.264 واحدة فقط لكل بث، ثم نسخ نفس المعالجة لكل RTMP / RTMPS.</p>
       </div>
       <button id="newBtn" class="btn primary">+ بث جديد</button>
     </header>
+
+    <section class="system-strip" aria-label="استهلاك السيرفر">
+      <div class="system-title">
+        <span class="pulse"></span>
+        <div><strong>استهلاك السيرفر</strong><small id="systemUpdated">يتحدث كل ثانيتين</small></div>
+      </div>
+      <div class="system-metric"><span>CPU</span><strong id="sysCpu">—</strong><small id="sysCores">—</small></div>
+      <div class="system-metric"><span>RAM</span><strong id="sysRam">—</strong><small id="sysRamDetail">—</small></div>
+      <div class="system-metric"><span>Upload</span><strong id="sysTx">—</strong><small>Mbps</small></div>
+      <div class="system-metric"><span>Download</span><strong id="sysRx">—</strong><small>Mbps</small></div>
+      <div class="system-metric"><span>FFmpeg</span><strong id="sysFfmpeg">—</strong><small id="sysActive">—</small></div>
+      <div class="system-metric"><span>Disk</span><strong id="sysDisk">—</strong><small id="sysDiskFree">—</small></div>
+    </section>
 
     <main>
       <div id="notice" class="notice hidden"></div>
@@ -23,7 +36,7 @@
       <section id="empty" class="empty hidden">
         <div class="empty-icon">▶</div>
         <h2>ما عندك بثوث بعد</h2>
-        <p>أنشئ بث، افحص المصدر، ثم أضف مخارج RTMP / RTMPS.</p>
+        <p>أنشئ بث، افحص المصدر، ثم أضف مخارج Telegram RTMPS.</p>
         <button class="btn primary" onclick="openEditor()">إنشاء أول بث</button>
       </section>
     </main>
@@ -36,12 +49,11 @@
           <div class="eyebrow">STREAM SETTINGS</div>
           <h2 id="modalTitle">بث جديد</h2>
         </div>
-        <button class="icon-btn" onclick="closeEditor()">×</button>
+        <button class="icon-btn" type="button" onclick="closeEditor()">×</button>
       </div>
 
-      <div id="hotEditBanner" class="hot-banner hidden">
-        البث شغال: تغييرات المخارج والمفاتيح تُطبق تلقائياً بدون إعادة تشغيل الـEncoder. إعدادات المعالجة مقفلة إلى أن توقف البث.
-        <span id="hotState" class="hot-state">جاهز</span>
+      <div id="runningLockBanner" class="hot-banner hidden">
+        البث شغال بوضع Single-FFmpeg. حفاظًا على الاستقرار وأقل استهلاك، أوقف البث قبل تعديل المصدر أو المعالجة أو المخارج.
       </div>
 
       <form id="streamForm">
@@ -160,14 +172,16 @@
 
         <div class="section-title row-between">
           <span>المخارج</span>
-          <button type="button" class="btn small ghost" onclick="addDestination()">+ إضافة مخرج</button>
+          <button id="addDestinationBtn" type="button" class="btn small ghost" onclick="addDestination()">+ إضافة مخرج</button>
         </div>
-        <div class="outputs-help">كل مخرج مستقل. إذا فصل مخرج، يعيد الاتصال وحده كل ثانيتين بدون إيقاف المصدر أو بقية المخارج.</div>
+        <div class="outputs-help">
+          كل المخارج تأخذ نفس الـH.264/AAC من Encoder واحد. FFmpeg tee + FIFO يعزل المخرج البطيء ويعيد الاتصال به بدون إعادة ترميز.
+        </div>
         <div id="destinations" class="destinations"></div>
 
         <div class="modal-actions">
           <button type="button" class="btn ghost" onclick="closeEditor()">إغلاق</button>
-          <button type="submit" class="btn primary">حفظ / تطبيق</button>
+          <button id="saveBtn" type="submit" class="btn primary">حفظ</button>
         </div>
       </form>
     </div>
@@ -177,12 +191,12 @@
     <div class="modal-card log-card">
       <div class="modal-head">
         <div><div class="eyebrow">FFMPEG LOG</div><h2 id="logTitle">Logs</h2></div>
-        <button class="icon-btn" onclick="closeLogs()">×</button>
+        <button class="icon-btn" type="button" onclick="closeLogs()">×</button>
       </div>
       <pre id="logs"></pre>
     </div>
   </div>
 
-  <script src="/static/app.js?v=2.1"></script>
+  <script src="/static/app.js?v=3.0"></script>
 </body>
 </html>

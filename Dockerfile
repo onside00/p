@@ -15,4 +15,4 @@ COPY . .
 RUN mkdir -p /data/uploads
 
 EXPOSE 8080
-CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:8080", "--timeout", "0", "app:app"]
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:8080", "--timeout", "0", "--graceful-timeout", "2", "app:app"]

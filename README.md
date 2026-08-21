@@ -1,36 +1,34 @@
-# Stream247 Hot Outputs v2
+# Stream247 — Single Encode / Tee + FIFO
 
-لوحة FFmpeg لمعالجة مصدر واحد مرة واحدة ثم توزيع نفس الـencoded stream إلى عدة RTMP/RTMPS.
+هذه النسخة تعالج كل مصدر مرة واحدة فقط بواسطة عملية FFmpeg واحدة، ثم توزع نفس H.264/AAC إلى جميع مخارج RTMP/RTMPS بواسطة `tee` و`fifo`.
 
-## الجديد
-- تعديل/إضافة/حذف Stream Keys والمخارج أثناء البث بدون Restart للـEncoder.
-- Hot Apply تلقائي أثناء تحرير المخارج والبث شغال.
-- كل Output عملية FFmpeg خفيفة `-c copy` مستقلة.
-- Reconnect تلقائي لكل Output كل ثانيتين عند الفصل.
-- زر ↻ لإعادة تشغيل Output واحد يدويًا بدون لمس البقية.
-- فحص المصدر بـ `ffprobe`: Resolution / FPS / Codec / Bitrate / Audio.
-- زر تطبيق إعدادات المصدر على Quality/FPS/Bitrate.
-- Preview للصورة عند الرفع أو وضع رابط مباشر.
-- مفاتيح البث محجوبة من الـLogs.
-- متوافق مع `data/streams.json` القديم.
+## ما تغير
 
-## تثبيت جديد
-```bash
-chmod +x install.sh
-sudo ./install.sh
-```
-الافتراضي: `http://VPS-IP:28081`
+- عملية FFmpeg واحدة فقط لكل Stream، مهما كان عدد المخارج.
+- لا يوجد Python MPEG-TS fan-out ولا FFmpeg `-c copy` إضافي لكل مخرج.
+- كل مخرج داخل FIFO مستقل مع recovery و`onfail=ignore` حتى لا يوقف بقية المخارج.
+- Supervisor يعيد تشغيل Encoder تلقائيًا إذا خرج بسبب خطأ مؤقت في المصدر.
+- زر الإيقاف لا ينتظر المخارج واحدًا وراء الآخر؛ يرسل SIGTERM مباشرة، ثم SIGKILL احتياطيًا بعد مهلة قصيرة بالخلفية.
+- مراقبة CPU / RAM / Upload / Download / Disk للسيرفر.
+- مراقبة CPU / RAM / FPS / Speed / Dropped frames / Restarts لكل FFmpeg.
+- Stream Keys مخفية من السجلات.
+- `streams.json` القديم متوافق، بما فيه الصيغة القديمة ذات مخرج واحد `rtmp_base` + `stream_key`.
 
-لبورت مختلف:
-```bash
-sudo PORT=38081 ./install.sh
-```
+## تحديث نسخة موجودة
 
-## تحديث نسخة موجودة بدون خسارة إعداداتك
-أوقف القديمة، احتفظ بمجلد `data/`، استبدل ملفات المشروع بهذه النسخة ثم أعد البناء:
+احتفظ بمجلد `data/` لأنه يحتوي الإعدادات والصور، ثم استبدل ملفات المشروع بهذه النسخة وشغّل:
+
 ```bash
 sudo docker compose down
 sudo docker compose up -d --build
 ```
 
-إذا نقلت المشروع إلى مجلد جديد، انسخ `data/` القديم إلى المجلد الجديد قبل التشغيل.
+اللوحة افتراضيًا على:
+
+```text
+http://YOUR_VPS_IP:28081
+```
+
+## ملاحظة عن تعديل المخارج أثناء البث
+
+هذه النسخة تعطي الأولوية للاستقرار وأقل استهلاك. قائمة مخارج `tee` تُبنى عند تشغيل FFmpeg، لذلك أوقف البث قبل إضافة/حذف/تغيير مخرج. إعادة الاتصال بالمخرج المتعطل تتم تلقائيًا داخل FIFO ولا تحتاج زر Reconnect منفرد.

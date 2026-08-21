@@ -14,9 +14,9 @@ fi
 sed -i -E "s/[0-9]+:8080/${PORT}:8080/" docker-compose.yml
 mkdir -p data/uploads
 
-echo "Building Stream247 Hot Outputs v2..."
+echo "Building Stream247 Single-Encode Edition..."
 docker compose up -d --build
 
 echo
 echo "Done: http://YOUR_VPS_IP:${PORT}"
-echo "Logs: docker compose logs -f"
+echo "Container logs: docker compose logs -f"
